@@ -55,8 +55,18 @@ def start_client():
         client_socket.connect((SERVER_HOST, SERVER_PORT))
         print(f"Connected to server at {SERVER_HOST}:{SERVER_PORT}")
 
-        max_msg_size = int(client_socket.recv(1024).decode('utf-8'))
-        print(f"Received max message size: {max_msg_size} bytes from server")
+        client_socket.sendall(config_option.encode('utf-8'))
+        print(f"Sent configuration option: {config_option}")
+
+        if config_option == '1':
+            ack = client_socket.recv(1024).decode('utf-8')
+            print(f"Received ACK for config option: {ack}")
+
+            client_socket.sendall(str(max_msg_size).encode('utf-8'))
+
+        server_max_msg_size = int(client_socket.recv(1024).decode('utf-8'))
+        max_msg_size = min(max_msg_size, server_max_msg_size)
+        print(f"Received max message size: {server_max_msg_size} bytes from server")
 
         segments = [message[i:i + max_msg_size] for i in range(0, len(message), max_msg_size)]
         print(f"Message divided into {len(segments)} segments")
@@ -88,16 +98,19 @@ def start_client():
                     base = ack_num + 1
                     print(f"Windows base move to {base}")
                     timer_start = None  # Reset time when acknowledgment is received
+                else:
+                    print(f"Invalid ack format received: {ack}")
             except socket.timeout:
                 print("Timeout, Resending unacknowledged messages.")
-
                 next_seq_num = base
                 timer_start = None
-                print(" All segments sent and acknowledged.")
+        print(" All segments sent and acknowledged.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
-            finally:
-                client_socket.close()
-                print("Connection closed.")
+    finally:
+        client_socket.close()
+        print("Connection closed.")
 
 
 if __name__ == '__main__':
