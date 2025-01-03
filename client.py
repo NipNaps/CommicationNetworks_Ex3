@@ -37,7 +37,7 @@ def start_client():
         window_size = int(input("Enter window size: "))
         timeout = int(input("Enter timeout (in seconds): "))
     elif config_option == '2':
-        file_name = input("Enter the config's file name: ").strip()
+        file_name = 'config.txt'
         config = read_config(file_name)
         message = config["message"]
         max_msg_size = int(config["max_msg_size"])
