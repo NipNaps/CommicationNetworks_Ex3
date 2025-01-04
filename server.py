@@ -29,7 +29,6 @@ def start_server():
     """
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
     server_socket.bind((HOST, PORT))
     print(f"Server initialised on {HOST}:{PORT}")
 
