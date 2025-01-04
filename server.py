@@ -61,14 +61,14 @@ def start_server():
             print("Invalid request received from client. Exiting")
             return
 
-        handle_client(conn, max_msg_size)
+        handle_client(conn)
     finally:
         conn.close()
         print(" Connection closed")
         server_socket.close()
 
 
-def handle_client(conn, max_msg_size):
+def handle_client(conn):
 
 
     highest_ack = -1
