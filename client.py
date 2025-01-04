@@ -13,16 +13,15 @@ def read_config(file_name):
 
     config = {}
     try:
-      with open(file_name, 'r') as file:
-         for line in file:
-            key, value = line.strip().split(':', 1)
-            config[key.strip()] = value.strip().strip('"')
+        with open(file_name, 'r') as file:
+            for line in file:
+                key, value = line.strip().split(':', 1)
+                config[key.strip()] = value.strip().strip('"')
     except FileNotFoundError:
         raise FileNotFoundError(f"config file {file_name} not found")
     except ValueError:
         raise ValueError(f"Invalid format in the config file: {file_name}")
     return config
-
 
 
 def start_client():
@@ -33,21 +32,17 @@ def start_client():
     config_option = input("Choose configuration option: 1 for manual input, 2 config file ").strip()
     if config_option == '1':
         message = input("Enter message to send: ").strip()
-        max_msg_size = int(input("Enter max message size: "))
         window_size = int(input("Enter window size: "))
         timeout = int(input("Enter timeout (in seconds): "))
     elif config_option == '2':
         file_name = 'config.txt'
         config = read_config(file_name)
         message = config["message"]
-        max_msg_size = int(config["max_msg_size"])
         window_size = int(config["window_size"])
         timeout = int(config["timeout"])
     else:
         print("Invalid config option")
         return
-
-
 
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -55,27 +50,22 @@ def start_client():
         client_socket.connect((SERVER_HOST, SERVER_PORT))
         print(f"Connected to server at {SERVER_HOST}:{SERVER_PORT}")
 
-        client_socket.sendall(config_option.encode('utf-8'))
-        print(f"Sent configuration option: {config_option}")
+        client_socket.send("GET_MAX_MSG_SIZE".encode('utf-8'))
+        response = client_socket.recv(1024).decode('utf-8').strip()
 
-        if config_option == '1':
-            ack = client_socket.recv(1024).decode('utf-8')
-            print(f"Received ACK for config option: {ack}")
-
-            client_socket.sendall(str(max_msg_size).encode('utf-8'))
-
-        server_max_msg_size = int(client_socket.recv(1024).decode('utf-8'))
-        max_msg_size = min(max_msg_size, server_max_msg_size)
-        print(f"Received max message size: {server_max_msg_size} bytes from server")
+        if response.startswith("SIZE:"):
+            max_msg_size = int(response[5:])
+            print(f"Received max message size: {max_msg_size} bytes from server")
+        else:
+            print(f"Invalid response from server: {response}")
+            return
 
         segments = [message[i:i + max_msg_size] for i in range(0, len(message), max_msg_size)]
         print(f"Message divided into {len(segments)} segments")
 
-
         next_seq_num = 0
         base = 0
         timer_start = None
-
 
         while base < len(segments):
 
@@ -93,7 +83,7 @@ def start_client():
                 ack = client_socket.recv(1024).decode('utf-8')
                 print(f"Received ack: {ack}")
 
-                if ack.startswith("ACK"):
+                if ack.startswith("ACK") and ack[3:].isdigit():
                     ack_num = int(ack[3:])
                     base = ack_num + 1
                     print(f"Windows base move to {base}")
@@ -115,4 +105,3 @@ def start_client():
 
 if __name__ == '__main__':
     start_client()
-

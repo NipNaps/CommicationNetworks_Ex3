@@ -4,6 +4,7 @@ import time
 HOST = '127.0.0.1'
 PORT = 65432
 
+
 def read_config(file_name):
     """
     Reads the config's formatted file
@@ -27,6 +28,18 @@ def start_server():
     """
     Starts the server, listens for a client connection, and handles communications.
     """
+    config_option = input("Choose max message configuration method: 1 for manual config, 2 for config file  ").strip()
+
+    if config_option == '1':
+        max_msg_size = int(input("Enter max message size: "))
+    elif config_option == '2':
+        file_name = "config.txt"
+        config = read_config(file_name)
+        max_msg_size = int(config["max_msg_size"])
+        print(f"Read max message size from config: {max_msg_size} bytes")
+    else:
+        print("Invalid config option received from client. Exiting")
+        return
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind((HOST, PORT))
@@ -39,20 +52,13 @@ def start_server():
     print(f" Connected to: {addr}")
 
     try:
-        config_option = conn.recv(1024).decode('utf-8').strip()
-        print(f" Client chose config: {config_option}")
+        request = conn.recv(1024).decode('utf-8').strip()
+        if request == 'GET_MAX_MSG_SIZE':
+            conn.sendall(f"SIZE:{max_msg_size}".encode('utf-8'))
+            print(f"Sent max message size to client: {max_msg_size} bytes")
 
-        if config_option == '1':
-            conn.sendall(b"ACK_CONFIG")
-            max_msg_size = int(conn.recv(1024).decode('utf-8').strip())
-            print(f"Received max message size from client: {max_msg_size} bytes")
-        elif config_option == '2':
-            file_name = "config.txt"
-            config = read_config(file_name)
-            max_msg_size = int(config["max_msg_size"])
-            print(f"Read max message size from config: {max_msg_size} bytes")
         else:
-            print("Invalid config option received from client. Exiting")
+            print("Invalid request received from client. Exiting")
             return
 
         handle_client(conn, max_msg_size)
@@ -62,10 +68,8 @@ def start_server():
         server_socket.close()
 
 
-
 def handle_client(conn, max_msg_size):
-    conn.sendall(str(max_msg_size).encode('utf-8'))
-    print(f"Sent max message size is {max_msg_size} bytes to the client.")
+
 
     highest_ack = -1
     received = {}
@@ -74,24 +78,25 @@ def handle_client(conn, max_msg_size):
         data = conn.recv(1024)
         if not data:
             break
+        messages = data.decode('utf-8').split('M')[1:]
+        for msg in messages:
 
-        try:
-            seq, message = process_message(data.decode('utf-8'))
-            received[seq] = message
-            print(f" Received message from client: {message}")
-        except ValueError:
-            print("Invalid message format")
-            continue
+            try:
+                seq, message = process_message(f"M{msg}")
+                received[seq] = message
+                print(f" Received message from {seq}: {message}")
+            except ValueError:
+                print("Invalid message format")
+                continue
 
+            while highest_ack + 1 in received:
+                highest_ack += 1
 
-        while highest_ack + 1 in received:
-            highest_ack += 1
+            ack = f"ACK{highest_ack}"
+            conn.sendall(ack.encode('utf-8'))
+            print(f" Sent ACK to client: {ack}")
 
-        ack = f"ACK{highest_ack}"
-        conn.sendall(ack.encode('utf-8'))
-        print(f" Sent ACK to client: {ack}")
-
-        time.sleep(0.01)
+            time.sleep(0.01)
 
 
 def process_message(message):
